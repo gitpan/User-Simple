@@ -11,7 +11,7 @@ my ($db, $dbdir);
 
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 31;
+use Test::More tests => 41;
 BEGIN { use_ok('User::Simple'); use_ok('User::Simple::Admin') };
 
 #########################
@@ -77,6 +77,29 @@ SKIP: {
     ok($ua->remove_user($usr_id), 'Removed a user');
     ok(!($ua->id('luser1')), 'Could not query for the removed user - Good.');
 
+    # Manually create a new table following User::Simple's traditional schema
+    # but with an extra field, and perform some queries on it.
+    $db->do('CREATE TABLE user_extra (id integer, login varchar(100), name
+            varchar(100), passwd char(32), level integer, session char(32),
+            session_exp varchar(20), extracolumn char(20), onemore integer)');
+    ok($ua = User::Simple::Admin->new($db, 'user_extra'),
+       'Created an extra User::Simple::Admin object with extra columns');
+    ok($usr_id = $ua->new_user('extratest','Extra user for an extra test', 
+			       'nothing', 0),
+       'Created a new user on a table with extra columns');
+
+    # Store some values
+    ok($ua->set_extracolumn($usr_id,'description'),
+       'Set the first extra column to an arbitrary value');
+    ok($ua->set_onemore($usr_id, 10),
+       'Set the second extra column to an arbitrary value');
+
+    # Retreive the values
+    is($ua->extracolumn($usr_id), 'description',
+       'First extra column matches expected value');
+    is($ua->onemore($usr_id), 10,
+       'Second extra column matches expected value');
+
     ###
     ### Now, the User::Simple tests
     ###
@@ -108,4 +131,13 @@ SKIP: {
     is($usr->login, 'user5', 'Reported login matches');
     is($usr->name, 'Regular user 5', 'Reported name matches');
     is($usr->level, 0, 'Reported level matches');
+
+    # Now get the values from the table with extra columns
+    ok($usr = User::Simple->new(db=>$db, tbl=>'user_extra'),
+       'Created a new instance of a User::Simple object with extra fields');
+    ok($usr->ck_login('extratest','nothing'),
+       'Successfully logged in to the table with extra fields');
+
+    is($usr->extracolumn, 'description', 'First extra field reported matches');
+    is($usr->onemore, 10, 'Second extra field reported matches');
 }

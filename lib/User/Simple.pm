@@ -1,4 +1,3 @@
-# $Id: Simple.pm,v 1.7 2005/06/15 17:17:10 gwolf Exp $
 use warnings;
 use strict;
 
@@ -25,6 +24,8 @@ User::Simple - Simple user sessions management
   $id = $usr->id;
   $session = $usr->session;
   $level = $usr->level;
+
+  $otherattrib = $user->otherattrib
 
 =head1 DESCRIPTION
 
@@ -102,17 +103,28 @@ To check the user's attributes (name, login and ID):
   $name = $usr->name;
   $login = $usr->login;
   $id = $usr->id;
+  $level = $usr->level;
+
+You might add extra columns to the User::Simple table in your database - You
+will still be able to query for them in the same way:
+
+  $otherattrib = $user->otherattrib;
+
+The access to the extra fields will be a bit slower than to the internally
+provided ones, as this is implemented via AUTOLOAD, and requires an extra 
+access to the database. Keep in mind that the extra columns' names must consist
+of only alphanumeric characters or underscores. Don't use column names 
+beginning with C<set_>, as you might want to use the C<set_*> methods in
+L<User::Simple::Admin>.
+
+Of course, beware: if the field does not exist, User::Simple will raise an 
+error and die just as if an unknown method had been called.
 
 To change the user's password:
 
   $ok = $usr->set_passwd($new_pass);
 
-=head2 USER LEVEL
-
-To check for the user level (again, see L<User::Simple::Admin> for further 
-details):
-
-  $level = $usr->level;
+Note that an empty password will not be accepted.
 
 =head1 DEPENDS ON
 
@@ -125,19 +137,6 @@ L<DBI> (and a suitable L<DBD> backend)
 =head1 SEE ALSO
 
 L<User::Simple::Admin> for administrative routines
-
-=head1 TO DO
-
-I would like to separate a bit the table structure, allowing for flexibility
-- This means, if you added some extra fields to the table, provide an easy way
-to access them. Currently, you have to reach in from outside User::Simple, 
-skipping the abstraction, to get them.
-
-Although no longer documented (don't use them, please!), we still have the 
-adm_level/is_admin functionality. For cleanness, it should be removed by the
-next release.
-
-Besides that, it works as expected (that is, as I expect ;-) )
 
 =head1 AUTHOR
 
@@ -156,10 +155,11 @@ use Date::Calc qw(Today_and_Now Add_Delta_DHMS Delta_DHMS);
 use Digest::MD5 qw(md5_hex);
 use UNIVERSAL qw(isa);
 
-our $VERSION = '1.0';
+our $AUTOLOAD;
+our $VERSION = '1.1';
 
 ######################################################################
-# Constructor
+# Constructor/destructor
 
 sub new {
     my ($class, $self, %init, $sth);
@@ -211,11 +211,6 @@ sub new {
 	return undef;
     }
 
-    unless ($init{adm_level} =~ /^\d+$/ and $init{adm_level} >= 0) {
-	carp "Administrative level must be a non-negative integer";;
-	return undef;
-    }
-
     $self = { %init };
     bless $self, $class;
 
@@ -223,6 +218,9 @@ sub new {
 
     return $self;
 }
+
+# As we are using autoload, better explicitly leave this as an empty sub
+sub DESTROY {}
 
 ######################################################################
 # User validation
@@ -325,19 +323,13 @@ sub end_session {
 ######################################################################
 # Accessors, mutators
 
+# Explicit accessors/mutators on the attributes that User::Simple requires
 sub is_valid { my $self = shift; return $self->{id} ? 1 : 0; }
 sub name { my $self = shift; return $self->{name}; }
 sub login { my $self = shift; return $self->{login}; }
 sub id { my $self = shift; return $self->{id}; }
 sub session { my $self = shift; return $self->{session}; }
 sub level { my $self = shift; return $self->{level}; }
-
-sub is_admin { 
-    my $self = shift; 
-    $self->_debug(2,"is_admin is deprecated! Please use level instead");
-    return 1 if $self->level >= $self->{adm_level};
-    return 0;
-}
 
 sub set_passwd {
     my ($self, $pass, $crypted, $sth);
@@ -357,6 +349,57 @@ sub set_passwd {
     }
 
     return 1;
+}
+
+# Other attributes are retreived via AUTOLOAD
+sub AUTOLOAD {
+    my ($self, $name, $myclass, $raise_error, $sth, $value);
+    $self = shift;
+    $name = $AUTOLOAD;
+
+    $self->_debug(5, "Querying for autoloaded $name field");
+
+    # Autoload gives us the fully qualified method name being called - Get our
+    # class name and strip it off $name. And why the negated index? Just to be
+    # sure we don't discard what we don't want to - Either it is at the
+    # beginning, or we don't discard a thing
+    $name = $AUTOLOAD;
+    $myclass = ref($self);
+    if (!index($name, $myclass)) {
+	# Substitute in $name from the beginning (0) to the length of the class
+	# name plus two (that is, strip the '::') with nothing.
+	substr($name,0,length($myclass)+2,'');
+    }
+
+    # We require the name to consist only of alphanumeric characters or 
+    # underscores
+    $name =~ /^[\w\d\_]+$/ or croak "Invalid field name '$name'";
+
+    # Store the RaiseError, as we don't want to change state outside our
+    # scope
+    $raise_error = $self->{db}{RaiseError};
+
+    # In order to check if $name is a valid field in the DB, query for it -
+    # but do it inside an eval, as we might get killed!
+    eval {
+	$self->{db}{RaiseError} = 1;
+
+	$sth = $self->{db}->prepare("SELECT $name FROM $self->{tbl} WHERE
+            id = ?");
+	$sth->execute($self->id);
+    };
+    if ($@) {
+	# Yes, we will croak and die - But this call might be also trapped.
+	# Restore the RaiseError anyway.
+	$self->{db}{RaiseError} = $raise_error;
+	croak "Field '$name' does not exist in the User::Simple table!";
+    }
+
+    # Restore the RaiseError
+    $self->{db}{RaiseError} = $raise_error;
+
+    ($value) = $sth->fetchrow_array;
+    return $value;
 }
 
 ######################################################################
