@@ -19,16 +19,15 @@ User::Simple::Admin - User::Simple user administration
 
   $id = $ua->id($login);
   $login = $ua->login($id);
-  $name = $ua->name($id);
-  $level = $ua->level($id);
+
+  $otherattrib = $user->otherattrib;
 
   $ok = $usr->set_login($id, $login);
-  $ok = $usr->set_name($id, $name);
-  $ok = $usr->set_level($id, $level);
   $ok = $usr->set_passwd($id, $passwd);
   $ok = $usr->clear_session($id);
 
-  $id = $ua->new_user($login, $name, $passwd, $level);
+  $id = $ua->new_user(login => $login, passwd => $passwd, 
+        [otherattribute => $otherattribute]);
 
   $ok = $ua->remove_user($id);
 
@@ -61,9 +60,11 @@ $user_table is the name of the table that holds the users' data.
 If we do not yet have the needed DB structure to store the user information,
 we can use this class method as a constructor as well:
 
-  $ua = User::Simple::Admin->create_rdbms_db_structure($db, $user_table);
+  $ua = User::Simple::Admin->create_rdbms_db_structure($db, $user_table,
+      [$extra_sql]);
 
-  $ua = User::Simple::Admin->create_plain_db_structure($db, $user_table);
+  $ua = User::Simple::Admin->create_plain_db_structure($db, $user_table,
+      [$extra_sql]);
 
 The first one should be used if your DBI handle ($db) points to a real RDBMS,
 such as PostgreSQL or MySQL. In case you are using a file-based DBD (such as
@@ -79,7 +80,21 @@ This module does not provide the functionality to modify the created tables
 by adding columns to it, although methods do exist to access and modify the
 values stored in those columns (see the L<CREATING, QUERYING AND MODIFYING
 USERS> section below), as many DBDs do not implement the ALTER TABLE SQL 
-commands.
+commands. It does, however, allow you to specify extra fields in the tables at
+creation time - If you specify a third extra parameter, it will be included as 
+part of the table creation - i.e., you can create a User::Simple table with
+fields for the user's first and family names and a UNIQUE constraint over
+them this way:
+
+  $ua = User::Simple::Admin->create_rdbms_db_structure($db, $user_table,
+      'firstname varchar(30) NOT NULL, famname varchar(30) NOT NULL,
+       UNIQUE (firstname,famname)');
+
+Keep in mind that the internal fields are C<id>, C<login>, C<passwd>, 
+C<session> and C<session_exp>. Don't mess with them ;-) Avoid adding any fields
+starting with C<set_> or called as any method defined here, as they will 
+become unreachable. And, of course, keep in mind what SQL construct does your 
+DBD support.
 
 =head2 QUERYING FOR DATABASE READINESS
 
@@ -92,21 +107,27 @@ specified table name, use the C<has_db_structure> class method:
 
   %users = $ua->dump_users;
 
-Will return a hash with the data regarding the registered users, in the 
-following form:
+Will return a hash with the data regarding the registered users with all of the
+existing DB fields, in the following form:
 
-  ( $id1 => { level => $level1, name => $name1, login => $login1},
-    $id2 => { level => $level2, name => $name2, login => $login2},
+  ( $id1 => { login=>$login1, firstname=>$firstname1, famname=>$famname1 },
+    $id2 => { login=>$login2, firstname=>$firstname2, famname=>$famname2 },
     (...) )
+
+Of course, with the appropriate attributes. The internal attributes C<id>, 
+C<session> and C<session_exp> will not be included in the resulting hashes (you
+have the C<id> as the hash keys).
 
 =head2 CREATING, QUERYING AND MODIFYING USERS
 
-  $id = $ua->new_user($login, $name, $passwd, $level);
+  $id = $ua->new_user(login => $login, passwd => $passwd, 
+        [otherattribute => $otherattribute]);
 
 Creates a new user with the specified data. Returns the new user's ID. Only
-the login is mandatory (as it uniquely identifies the user). If no password
-is supplied, the account will be created, but no login will be allowed until
-one is supplied.
+the login is mandatory (as it uniquely identifies the user), unless you have
+specified extra NOT NULL fields or constraints in the DB. If no password is 
+supplied, the account will be created, but no login will be allowed until one 
+is supplied.
 
   $ok = $ua->remove_user($id);
 
@@ -114,42 +135,36 @@ Removes the user specified by the ID.
 
   $id = $ua->id($login);
   $login = $ua->login($id);
-  $name = $ua->name($id);
-  $level = $ua->level($id);
-
-Get the value of each of the mentioned attributes. Note that in order to get
-the ID you can supply the login, every other method answers only to the ID. In
-case you have the login and want to get the name, you should use 
-C<$ua->name($ua->id($login));>
-
-You might add extra columns to the User::Simple table in your database - You
-will still be able to query for them in the same way:
 
   $otherattrib = $user->otherattrib($id);
 
-The access to the extra fields will be a bit slower than to the internally
-provided ones, as this is implemented via AUTOLOAD, and requires an extra 
-access to the database. Keep in mind that the extra columns' names must consist
-of only alphanumeric characters or underscores. Don't use column names 
-beginning with C<set_>, as you will need that for the mutators.
+Get the value of each of the mentioned attributes. Note that in order to get
+the ID you can supply the login, every other method answers only to the ID. In
+case you have the login and want to get the firstname, you can use 
+C<$ua->firstname($ua->id($login));>
 
-Of course, beware: if the field does not exist, User::Simple will raise an 
-error and die just as if an unknown method had been called.
+Of course, beware: if you request for a field which does not exist in your
+table, User::Simple will raise an  error and die just as if an unknown method 
+had been called.
 
   $ok = $usr->set_login($id, $login);
-  $ok = $usr->set_name($id, $name);
   $ok = $usr->set_passwd($id, $passwd);
-  $ok = $usr->set_level($id, $level);
 
 Modifies the requested attribute of the specified user, setting it to the new 
 value. Except for the login, they can all be set to null values - If the 
 password is set to a null value, the account will be locked (that is, no
-password will be accepted).
+password will be accepted). The internal attributes C<id>, C<session> and 
+C<session_exp> cannot be directly modified (you have the C<id> as the hash 
+keys).
 
 Just as with the accessors, if you have extra columns, you can modify them the
 same way:
 
   $ok = $usr->set_otherattrib($id);
+
+i.e.
+
+  $ok = $usr->set_name($id, $name);
 
 =head2 SESSIONS
 
@@ -190,27 +205,14 @@ our $AUTOLOAD;
 # Constructor/destructor
 
 sub new {
-    my ($self, $class, $db, $table, $adm_level);
+    my ($self, $class, $db, $table);
     $class = shift;
     $db = shift;
     $table = shift;
-    $adm_level = shift;
 
     # Verify we got the right arguments
     unless (isa($db, 'DBI::db')) {
 	carp "First argument must be a DBI connection";
-	return undef;
-    }
-
-    if (defined $adm_level) {
-	carp 'adm_level is considered deprecated and will be removed in'.
-	    ' future releases.';
-    } else {
-	$adm_level = 1;
-    }
-
-    if ($adm_level !~ /^\d+$/) {
-	carp "adm_level must be a non-negative integer";
 	return undef;
     }
 
@@ -226,7 +228,7 @@ sub new {
 	return undef;
     }
 
-    $self = { db => $db, tbl => $table, adm_level => $adm_level };
+    $self = { db => $db, tbl => $table };
 
     bless $self, $class;
     return $self;
@@ -239,21 +241,23 @@ sub DESTROY {}
 # Creating the needed structure
 
 sub create_rdbms_db_structure {
-    my ($class, $db, $table, $sth);
+    my ($class, $db, $table, $extra_sql, $sql, $sth);
     $class = shift;
     $db = shift;
     $table = shift;
+    $extra_sql = shift || ''; # Avoid warnings on undef
 
     # Remember some DBD backends don't implement 'serial' - Use 'integer' and
     # some logic on our side instead
-    unless ($sth = $db->prepare("CREATE TABLE $table (
+    $sql = sprintf('CREATE TABLE %s (
             id serial PRIMARY KEY, 
             login varchar(100) NOT NULL UNIQUE,
-            name varchar(100) NOT NULL,
             passwd char(32),
-            level integer NOT NULL,
             session char(32) UNIQUE,
-            session_exp varchar(20))") and $sth->execute) {
+            session_exp varchar(20)
+            %s)', $table, $extra_sql ? ", $extra_sql" : '');
+
+    unless ($sth = $db->prepare($sql) and $sth->execute) {
 	carp "Could not create database structure using table $table";
 	return undef;
     }
@@ -262,21 +266,23 @@ sub create_rdbms_db_structure {
 }
 
 sub create_plain_db_structure {
-    my ($class, $db, $table, $sth);
+    my ($class, $db, $table, $extra_sql, $sql, $sth);
     $class = shift;
     $db = shift;
     $table = shift;
+    $extra_sql = shift || ''; # Avoid warnings on undef
 
     # Remember some DBD backends don't implement 'serial' - Use 'integer' and
     # some logic on our side instead
-    unless ($sth = $db->prepare("CREATE TABLE $table (
+    $sql = sprintf('CREATE TABLE %s (
             id integer, 
             login varchar(100),
-            name varchar(100),
             passwd char(32),
-            level integer,
             session char(32),
-            session_exp varchar(20))") and $sth->execute) {
+            session_exp varchar(20)
+            %s)', $table, $extra_sql  ? ", $extra_sql" : '');
+
+    unless ($sth = $db->prepare($sql) and $sth->execute) {
 	carp "Could not create database structure using table $table";
 	return undef;
     }
@@ -295,8 +301,8 @@ sub has_db_structure {
     # data, if the ID is not linked to a trigger and a sequence, and so on...
     # But usually, this check will be enough just to determine if we have the
     # structure ready.
-    return 1 if ($sth=$db->prepare("SELECT id, login, name, passwd, level, 
-                 session, session_exp FROM $table") and $sth->execute);
+    return 1 if ($sth=$db->prepare("SELECT id, login, passwd, session, 
+        session_exp FROM $table") and $sth->execute);
     return 0;
 }
 
@@ -304,22 +310,30 @@ sub has_db_structure {
 # Retrieving information
 
 sub dump_users { 
-    my ($self, $order, $sth, %users);
+    # Some DBDs are case-insensitive towards Perl (we can query/modify the
+    # columns case-insensitively), but internally are case sensitive. Gah, we
+    # work around that to provide the much more common lowercase fields...
+    my ($self, $order, $sth, $results, %users);
     $self = shift;
 
-    unless ($sth = $self->{db}->prepare("SELECT id, login, name, level
-            FROM $self->{tbl}") and $sth->execute) {
+    unless ($sth = $self->{db}->prepare("SELECT * FROM $self->{tbl}") 
+	    and $sth->execute) {
 	carp 'Could not query for the user list';
 	return undef;
     }
+    $sth->execute;
 
-    while (my @row = $sth->fetchrow_array) {
-	$users{$row[0]} = {login => $row[1],
-			   name => $row[2],
-			   level => $row[3],
-			   };
+    $results = $sth->fetchall_hashref('ID');
+
+    # Keep to myself the internal fields, translate the fieldnames to lowercase
+    for my $user (keys %$results) {
+	for my $in_field (keys %{$results->{$user}}) {
+	    my $out_field = lc($in_field);
+	    next if $out_field =~ /^(?:id|session|session_exp)$/;
+
+	    $users{$user}{$out_field} = $results->{$user}{$in_field};
+	}
     }
-
     return %users;
 }
 
@@ -344,25 +358,11 @@ sub login {
     return $self->_get_field($id, 'login'); 
 }
 
-sub name { 
-    my ($self, $id);
-    $self = shift;
-    $id = shift;
-    return undef unless $id;
-    return $self->_get_field($id, 'name'); 
-}
-
-sub level {
-    my ($self, $id);
-    $self = shift;
-    $id = shift;
-    return undef unless $id;
-    return $self->_get_field($id, 'level'); 
-}
-
 ######################################################################
 # Modifying information
 
+# We need only the mutators for the special case fields - Handle everything
+# else via AUTOLOAD
 sub set_login { 
     my ($self, $id, $new, $sth, $ret);
     $self = shift;
@@ -379,24 +379,6 @@ sub set_login {
     return $self->_set_field($id, 'login', $new);
 }
 
-sub set_name { 
-    my ($self, $id, $new);
-    $self = shift;
-    $id = shift;
-    $new = shift;
-    return undef unless $id;
-    return $self->_set_field($id, 'name', $new);
-}
-
-sub set_level {
-    my ($self, $id, $new);
-    $self = shift;
-    $id = shift;
-    $new = shift;
-    return undef unless $id;
-    return $self->_set_field($id, 'level', $new);
-}
-
 sub set_passwd { 
     my ($self, $id, $new, $crypted, $sth);
     $self = shift;
@@ -404,7 +386,8 @@ sub set_passwd {
     $new = shift;
     return undef unless $id;
 
-    # No password was supplied? Disable logging in.
+    # No password was supplied? Prevent anybody from logging in with a blank
+    # password (nothing will get a MD5 equal to this string).
     if ($new) {
 	$crypted = md5_hex($new, $id);
     } else {
@@ -453,7 +436,12 @@ sub AUTOLOAD {
     }
 
     if ($set) {
+	if ($field =~ /^(id|session|sesion_exp)$/) {
+	    die "Attempt to modify internal field $field";
+	}
+
 	return $self->_set_field($id, $field, $new);
+
     } 
     return $self->_get_field($id, $field);
 }
@@ -462,13 +450,9 @@ sub AUTOLOAD {
 # User creation and removal
 
 sub new_user { 
-    my ($self, $login, $name, $passwd, $level, $id, $db, $orig_state, 
-	$has_transact);
+    my ($self, %param, $id, $db, $orig_state, $has_transact);
     $self = shift;
-    $login = shift;
-    $name = shift || ''; # Don't whine on undef
-    $passwd = shift;
-    $level = shift || 0; # Don't whine on undef
+    %param = @_;
 
     # We will use the database handler over and over - Get a shortcut.
     $db = $self->{db};
@@ -484,13 +468,13 @@ sub new_user {
     $has_transact = $@ ? 0 : 1;
 
     # We require a login - Check if we got one.
-    if (!defined $login) {
+    unless ($param{login}) {
 	carp 'A login is required for user creation';
 	return undef;
     }
 
     # Check first if we have a registered user with this same login
-    if (my $id = $self->id($login)) {
+    if (my $id = $self->id($param{login})) {
 	carp "There is already a user registered with desired login (ID $id)";
 	return undef;
     }
@@ -515,13 +499,20 @@ sub new_user {
 	($id) = $sth->fetchrow_array;
 	$id++;
 
-	$sth = $db->prepare("INSERT INTO $self->{tbl} (id, login, name,
-            level) VALUES (?, ?, ?, ?)");
-	$sth->execute($id, $login, $name, $level);
+	$sth = $db->prepare("INSERT INTO $self->{tbl} (id, login) 
+            VALUES (?, ?, ?, ?)");
+	$sth->execute($id, $param{login});
 
 	# But just to be sure, lets retreive the ID from the login.
-	$id = $self->id($login);
-	$self->set_passwd($id, $passwd);
+	$id = $self->id($param{login});
+
+	$self->set_passwd($id, $param{passwd});
+
+	# Set all the other fields we got as parameters
+	for my $field (keys %param) {
+	    next if $field =~ /^(login|passwd)$/; # Already handled.
+	    $self->_set_field($id, $field, $param{$field});
+	}
 
 	$db->commit if $has_transact;
 	$db->{RaiseError} = $orig_state;
@@ -601,7 +592,7 @@ sub _is_valid_field {
     $field = shift;
 
     # If it is one of our internal fields, return successfully right away
-    return 1 if $field =~ /^(login|name|level)$/;
+    return 1 if $field =~ /^(login)$/;
 
     # Explicitly disallow direct passwd handling
     return 0 if $field eq 'passwd';
