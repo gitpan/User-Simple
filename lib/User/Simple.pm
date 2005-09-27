@@ -156,7 +156,7 @@ use Digest::MD5 qw(md5_hex);
 use UNIVERSAL qw(isa);
 
 our $AUTOLOAD;
-our $VERSION = '1.21';
+our $VERSION = '1.22';
 
 ######################################################################
 # Constructor/destructor
