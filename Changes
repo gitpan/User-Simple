@@ -1,5 +1,8 @@
 Revision history for Perl extension User::Simple.
 
+1.21 Mon Sep 26 19:24:52 2005
+        - Bugfix: Last remanent of old name/level structure removed.
+
 1.2  Fri Sep 23 13:43:00 2005
         - API CHANGE - API CHANGE - API CHANGE: Some changes in
 	  User::Admin::Simple (in user creation, database structure creation)
