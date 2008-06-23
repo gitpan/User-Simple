@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                User-Simple
-version:             1.36
+version:             1.37
 abstract:            Simple user sessions management
 license:             ~
 author:              

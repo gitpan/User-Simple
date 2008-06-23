@@ -1,9 +1,16 @@
 Revision history for Perl extension User::Simple.
 
+1.37 Mon Jun 23 10:41:00 CDT 2008
+     	- Fixed remaining file locking problem which caused the tests
+	  to fail in *BSD systems. Thanks to Slaven Rezic and CPANTS
+	  for helping me spot and fix the bug!
+
 1.36 Sun Jun 15 23:56:56 CDT 2008
         - Umh... since the very early revisions (0.9?), I was only
 	  explicitly skipping 14 tests if DBD::XBase is not
 	  installed. Updating it to 37. Grr.
+	- Changed the tests to run under SQLite3 instead of DBD::XBase
+	  - A bit more reliable, it seems
 
 1.35
         - Gah... Using DBD::XBase in the tests lets many subtle
