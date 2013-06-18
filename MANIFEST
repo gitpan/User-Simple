@@ -10,3 +10,4 @@ README
 t/User-Simple.t
 t/pod.t
 examples/user-simple-admin
+META.json

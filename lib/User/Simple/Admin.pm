@@ -198,7 +198,7 @@ Gunnar Wolf <gwolf@gwolf.org>
 =head1 COPYRIGHT
 
 Copyright 2005-2009 Gunnar Wolf / Instituto de Investigaciones
-Económicas UNAM 
+EconÃ³micas UNAM 
 
 This module is Free Software; it can be redistributed under the same
 terms as Perl.
@@ -339,7 +339,7 @@ sub dump_users {
 	    # sensitive. Gah, we work around that to provide the much more 
 	    # common lowercase fields... This might still have some problems
 	    # attached, please tell me if it breaks for you.
-	    for my $case qw(id ID Id iD) {
+	    for my $case (qw(id ID Id iD)) {
 		if (exists $row->{$case}) {
 		    $id = $row->{$case};
 		    last;

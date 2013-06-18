@@ -1,27 +1,31 @@
 ---
-name: User-Simple
-version: 1.43
+abstract: 'Simple user sessions management'
 author:
   - 'Gunnar Wolf <gwolf@gwolf.org>'
-abstract: Simple user sessions management
-license: perl
-resources:
-  license: http://dev.perl.org/licenses/
-requires:
-  DBI: 0
-  Date::Calc: 0
-  Digest::MD5: 0
 build_requires:
   DBD::SQLite: 0
   Module::Build: 0
   Test::Pod: 0
+configure_requires:
+  Module::Build: 0.38
+dynamic_config: 1
+generated_by: 'Module::Build version 0.38, CPAN::Meta::Converter version 2.110440'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: User-Simple
 provides:
   User::Simple:
     file: lib/User/Simple.pm
-    version: 1.43
+    version: 1.44
   User::Simple::Admin:
     file: lib/User/Simple/Admin.pm
-generated_by: Module::Build version 0.280801
-meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.2.html
-  version: 1.2
+    version: 0
+requires:
+  DBI: 0
+  Date::Calc: 0
+  Digest::MD5: 0
+resources:
+  license: http://dev.perl.org/licenses/
+version: 1.44

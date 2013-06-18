@@ -1,4 +1,12 @@
 Revision history for Perl extension User::Simple.
+1.44 Tue Jun 18 13:09:03 CDT 2013
+
+        - Reencoded the files as UTF8. Older encoding systems must
+          die.
+	- One missing pair of parentheses caused the admin module
+          to fail building under Perl 5.18. Thanks to gregor herrmann
+          for reporting it!
+
 1.43 Tue Jan 20 13:37:10 CST 2009
 
         - Dropped spurious requirement of YAML in the test suite (that
