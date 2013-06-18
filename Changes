@@ -1,4 +1,10 @@
 Revision history for Perl extension User::Simple.
+1.45 Tue Jun 18 16:24:21 CDT 2013
+
+     	- Turns out the POD checks actually need a charset to be
+          explicitly declared, even if using UTF. Go know. Anyway,
+          thanks (again!) to gregor herrmann.
+
 1.44 Tue Jun 18 13:09:03 CDT 2013
 
         - Reencoded the files as UTF8. Older encoding systems must

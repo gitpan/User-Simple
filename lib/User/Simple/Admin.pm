@@ -3,6 +3,8 @@ use strict;
 
 package User::Simple::Admin;
 
+=encoding UTF-8
+
 =head1 NAME
 
 User::Simple::Admin - User::Simple user administration

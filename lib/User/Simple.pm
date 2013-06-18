@@ -3,6 +3,8 @@ use strict;
 
 package User::Simple;
 
+=encoding UTF-8
+
 =head1 NAME
 
 User::Simple - Simple user sessions management
@@ -171,7 +173,7 @@ use Digest::MD5 qw(md5_hex);
 use UNIVERSAL qw(isa);
 
 our $AUTOLOAD;
-our $VERSION = '1.44';
+our $VERSION = '1.45';
 
 ######################################################################
 # Constructor/destructor
